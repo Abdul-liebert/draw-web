@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
-
-import "./globals.css";
+import {  Inter } from "next/font/google";
+import "../globals.css";
 import {cn} from "@/lib/utils"
 
 const inter = Inter({
@@ -12,10 +11,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Web Undian",
-  
+ 
 };
 
-export default function RootLayout({
+export default function AuthLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -23,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={cn(`min-h-screen flex items-center justify-center ${inter.variable} antialiased `)}
+        className={cn(`${inter.variable} antialiased`)}
       >
         {children}
       </body>
