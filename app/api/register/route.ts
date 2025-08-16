@@ -45,13 +45,32 @@ export async function POST(req: Request) {
     const sheets = google.sheets({ version: "v4", auth });
     const spreadsheetId = process.env.SHEET_ID as string;
 
-    // Generate nomor peserta unik
+    // 0️⃣ Cek apakah alamat sudah pernah dipakai
+    const existingAlamatRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Peserta!C:D", // kolom C = alamat
+    });
+
+    const existingAlamat = new Set(
+      (existingAlamatRes.data.values || [])
+        .flat()
+        .map((val: string) => val.trim().toLowerCase())
+    );
+
+    if (existingAlamat.has(alamat.trim().toLowerCase())) {
+      return NextResponse.json(
+        { error: "Alamat sudah terdaftar, tidak boleh duplikat." },
+        { status: 409 }
+      );
+    }
+
+    // 1️⃣ Generate nomor peserta unik
     const nomorPeserta = await generateUniqueNomorPeserta(sheets, spreadsheetId);
 
-    // Simpan data ke Google Sheet
+    // 2️⃣ Simpan data ke Google Sheet
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Peserta!A:E", // A = nomor, B = nama, dst
+      range: "Peserta!A:E", // A = nomor, B = nama, C = alamat, D = nomorJalan, E = waktu daftar
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [[

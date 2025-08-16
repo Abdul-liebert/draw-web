@@ -3,95 +3,88 @@ import { getSheetsClient } from "@/lib/sheets";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { id, nama, hadiah, nomorHadiah, nomorPeserta } = body as {
-      id: number;
-      nama: string;
-      hadiah: string;
-      nomorHadiah: number;
-      nomorPeserta: number;
-    };
-
     const { sheets, spreadsheetId } = await getSheetsClient();
+    const body = await req.json();
 
-    // 🔍 0) Cek apakah peserta ini sudah menang hadiah ini
-    const pemenangRes = await sheets.spreadsheets.values.get({
+    const { id, nama, hadiah, nomorHadiah, nomorPeserta } = body;
+
+    // 0️⃣ Cek dulu apakah nomorHadiah sudah pernah dipakai
+    const winnersRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Pemenang!A:E",
+      range: "Pemenang!A2:E",
     });
 
-    const pemenangRows = pemenangRes.data.values || [];
-    const sudahMenang = pemenangRows.some(row => {
-      const rowNomorPeserta = Number(row[4]); // Kolom E = nomorPeserta
-      const rowNomorHadiah = Number(row[3]);  // Kolom D = nomorHadiah
-      return rowNomorPeserta === nomorPeserta && rowNomorHadiah === nomorHadiah;
-    });
+    const winners = winnersRes.data.values || [];
+    const hadiahSudahDipakai = winners.some(
+      (r) => Number(r[3]) === Number(nomorHadiah) // kolom D = nomorHadiah
+    );
 
-    if (sudahMenang) {
+    if (hadiahSudahDipakai) {
       return NextResponse.json(
-        { error: "Peserta ini sudah pernah menang hadiah tersebut" },
-        { status: 400 }
+        { error: `Nomor hadiah ${nomorHadiah} sudah dimenangkan.` },
+        { status: 409 }
       );
     }
 
-    // 1) Append ke Pemenang
+    // 1️⃣ Tambahkan pemenang baru ke sheet Pemenang
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Pemenang!A:E",
+      range: "Pemenang!A2:E",
       valueInputOption: "USER_ENTERED",
-      requestBody: { values: [[id, nama, hadiah, nomorHadiah, nomorPeserta]] },
+      requestBody: {
+        values: [[id, nama, hadiah, nomorHadiah, nomorPeserta]],
+      },
     });
 
-    // 2) Update stok hadiah
-    const hadiahData = await sheets.spreadsheets.values.get({
+    // 2️⃣ Update status hadiah di sheet Hadiah
+    const hadiahRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Hadiah!A:E", // A = Nama Hadiah, B = Stok
+      range: "Hadiah!A2:D",
     });
 
-    const hadiahRows = hadiahData.data.values || [];
-    for (let i = 0; i < hadiahRows.length; i++) {
-      const [namaHadiah, stokStr] = hadiahRows[i];
-      if (namaHadiah === hadiah) {
-        let stok = parseInt(stokStr, 10) || 0;
-        if (stok > 0) stok -= 1;
+    const rows = hadiahRes.data.values || [];
+    const rowIndex = rows.findIndex(
+      (r) => Number(r[1]) === Number(nomorHadiah)
+    );
 
-        // Update stok di sheet
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: `Hadiah!B${i + 1}`,
-          valueInputOption: "USER_ENTERED",
-          requestBody: { values: [[stok]] },
-        });
-        break;
-      }
+    if (rowIndex !== -1) {
+      const targetRow = rowIndex + 2; // +2 karena range mulai dari baris 2
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `Hadiah!D${targetRow}`,
+        valueInputOption: "USER_ENTERED",
+        requestBody: {
+          values: [["sudah"]],
+        },
+      });
     }
 
-    // 3) Hapus peserta dari daftar peserta
+    // 3️⃣ Opsional: hapus peserta dari sheet Peserta
     const pesertaRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: "Peserta!A2:B",
     });
+
     const pesertaRows = pesertaRes.data.values || [];
-    const filtered = pesertaRows.filter(
-      r => Number(r[0]) !== Number(nomorPeserta)
+    const pesertaRowIndex = pesertaRows.findIndex(
+      (r) => Number(r[0]) === Number(nomorPeserta)
     );
 
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId,
-      range: "Peserta!A2:B10000",
-    });
-    if (filtered.length) {
+    if (pesertaRowIndex !== -1) {
+      const targetRow = pesertaRowIndex + 2;
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: "Peserta!A2:B",
+        range: `Peserta!A${targetRow}:B${targetRow}`,
         valueInputOption: "USER_ENTERED",
-        requestBody: { values: filtered },
+        requestBody: {
+          values: [["", ""]],
+        },
       });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ success: true });
   } catch (e: any) {
-    console.error(e);
+    console.error("Error submitWinner:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

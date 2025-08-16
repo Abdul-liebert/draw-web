@@ -1,18 +1,45 @@
 import { NextResponse } from "next/server";
 import { getSheetsClient } from "@/lib/sheets";
 
-type Hadiah = { hadiah: string; nomorHadiah: number; gambar: string; status: "tersedia" | "sudah" };
-type Peserta = { nomorPeserta: number; nama: string };
-type Winner = { id: number; nama: string; hadiah: string; nomorHadiah: number; nomorPeserta: number };
+type Hadiah = {
+  hadiah: string;
+  nomorHadiah: number;
+  gambar: string;
+  status: "tersedia" | "sudah";
+};
+
+type Peserta = {
+  nomorPeserta: number;
+  nama: string;
+  alamat: string;
+  nomorJalan: string;
+};
+
+type Winner = {
+  id: number;
+  nama: string;
+  hadiah: string;
+  nomorHadiah: number;
+  nomorPeserta: number;
+};
 
 export async function GET() {
   try {
     const { sheets, spreadsheetId } = await getSheetsClient();
 
     const [hadiahRes, pesertaRes, winnersRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId, range: "Hadiah!A2:D" }),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: "Peserta!A2:B" }),
-      sheets.spreadsheets.values.get({ spreadsheetId, range: "Pemenang!A2:E" }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: "Hadiah!A2:D",
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: "Peserta!A2:D",
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: "Pemenang!A2:E",
+      }),
     ]);
 
     const hadiah: Hadiah[] =
@@ -27,6 +54,8 @@ export async function GET() {
       (pesertaRes.data.values || []).map((r) => ({
         nomorPeserta: Number(r[0] ?? 0),
         nama: String(r[1] ?? ""),
+        alamat: String(r[2] ?? ""),
+        nomorJalan: String(r[3] ?? ""),
       })) ?? [];
 
     const winners: Winner[] =
@@ -38,9 +67,22 @@ export async function GET() {
         nomorPeserta: Number(r[4] ?? 0),
       })) ?? [];
 
-    const nextId = (winners.reduce((m, w) => Math.max(m, w.id), 0) || 0) + 1;
+    const nextId =
+      (winners.reduce((m, w) => Math.max(m, w.id), 0) || 0) + 1;
 
-    return NextResponse.json({ hadiah, peserta, winners, nextId });
+    // ⬇️ cari index hadiah yang masih tersedia
+    let currentIndex = hadiah.findIndex((h) => h.status === "tersedia");
+    if (currentIndex === -1) {
+      currentIndex = hadiah.length > 0 ? hadiah.length - 1 : 0;
+    }
+
+    return NextResponse.json({
+      hadiah,
+      peserta,
+      winners,
+      nextId,
+      currentIndex, // ⬅️ sudah ditambahkan
+    });
   } catch (e: any) {
     console.error(e);
     return NextResponse.json({ error: e.message }, { status: 500 });

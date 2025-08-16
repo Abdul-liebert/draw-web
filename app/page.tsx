@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Icons } from "@/components/ui/icons";
 
 type Hadiah = {
   hadiah: string;
@@ -22,42 +23,28 @@ type Hadiah = {
   gambar: string;
   status: "tersedia" | "sudah";
 };
-type Peserta = { nomorPeserta: number; nama: string };
+type Peserta = {
+  nomorPeserta: number;
+  nama: string;
+  alamat: string;
+  nomorJalan: string;
+};
 type Winner = {
   id: number;
   nama: string;
   hadiah: string;
   nomorHadiah: number;
+  alamat: string;
+  nomorJalan: string;
   nomorPeserta: number;
 };
-
-const initialHadiahList: Hadiah[] = [
-  { hadiah: "Mobil", nomorHadiah: 1, gambar: "/mobil.png", status: "tersedia" },
-  { hadiah: "Motor", nomorHadiah: 2, gambar: "/motor.jpg", status: "tersedia" },
-  {
-    hadiah: "Laptop",
-    nomorHadiah: 3,
-    gambar: "/laptop.jpg",
-    status: "tersedia",
-  },
-];
-
-const initialPesertaList: Peserta[] = [
-  { nomorPeserta: 11, nama: "Andi" },
-  { nomorPeserta: 99, nama: "Budi" },
-  { nomorPeserta: 53, nama: "Citra" },
-  { nomorPeserta: 87, nama: "Dedi" },
-  { nomorPeserta: 32, nama: "Eka" },
-  { nomorPeserta: 75, nama: "Farah" },
-  { nomorPeserta: 8, nama: "Gilang" },
-];
 
 export default function DoorprizeDraw() {
   const [hadiahList, setHadiahList] = useState<Hadiah[]>([]);
   const [pesertaList, setPesertaList] = useState<Peserta[]>([]);
   const [winners, setWinners] = useState<Winner[]>([]);
   const [nextId, setNextId] = useState(1);
-
+  const [isLoading, setIsLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentPeserta, setCurrentPeserta] = useState("--");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -79,7 +66,8 @@ export default function DoorprizeDraw() {
       setPesertaList(data.peserta ?? []);
       setWinners(data.winners ?? []);
       setNextId(data.nextId ?? 1);
-      setCurrentIndex(0);
+
+      setCurrentIndex(data.currentIndex ?? 0);
       setCurrentPeserta("--");
     })();
   }, []);
@@ -115,6 +103,7 @@ export default function DoorprizeDraw() {
   const submitWinner = async () => {
     if (!selectedWinner || !hadiahSekarang) return;
 
+    setIsLoading(true); // ✅ mulai loading
     // 1) Simpan ke Sheet (append winners, update hadiah, hapus peserta)
     await fetch("/api/sheet/winner", {
       method: "POST",
@@ -125,6 +114,9 @@ export default function DoorprizeDraw() {
         hadiah: hadiahSekarang.hadiah,
         nomorHadiah: hadiahSekarang.nomorHadiah,
         nomorPeserta: selectedWinner.nomorPeserta,
+        alamat: selectedWinner.alamat,
+    nomorJalan: selectedWinner.nomorJalan,
+        
       }),
     });
 
@@ -137,6 +129,8 @@ export default function DoorprizeDraw() {
         hadiah: hadiahSekarang.hadiah,
         nomorHadiah: hadiahSekarang.nomorHadiah,
         nomorPeserta: selectedWinner.nomorPeserta,
+        alamat: selectedWinner.alamat,
+        nomorJalan: selectedWinner.nomorJalan,
       },
     ]);
 
@@ -170,10 +164,6 @@ export default function DoorprizeDraw() {
     await fetch("/api/sheet/reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        hadiah: initialHadiahList,
-        peserta: initialPesertaList,
-      }),
     });
 
     // Ambil ulang
@@ -214,7 +204,6 @@ export default function DoorprizeDraw() {
                 hadiahSekarang.status === "sudah" ? "opacity-50" : ""
               }`}
             >
-              
               <CardContent>
                 <Image
                   src={hadiahSekarang.gambar}
@@ -325,6 +314,7 @@ export default function DoorprizeDraw() {
       </Card>
 
       {/* Dialog Pemenang */}
+      {/* Dialog Pemenang */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           {hadiahSekarang && (
@@ -354,8 +344,12 @@ export default function DoorprizeDraw() {
                     </p>
                   </div>
                   <div>
-                    <Label>No. Peserta</Label>
-                    <p>{selectedWinner?.nomorPeserta ?? ""}</p>
+                    <Label>Alamat</Label>
+                    <p className="text-sm">
+                      {selectedWinner
+                        ? `Jalan ${selectedWinner.alamat} no ${selectedWinner.nomorJalan}`
+                        : ""}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -365,8 +359,9 @@ export default function DoorprizeDraw() {
             className="mt-6 w-full"
             variant="destructive"
             onClick={submitWinner}
+            disabled={isLoading}
           >
-            Submit
+            {isLoading ? "Menyimpan..." : "Submit"}
           </Button>
         </DialogContent>
       </Dialog>
