@@ -1,6 +1,8 @@
 // app/api/register/route.ts
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
+export const runtime = "nodejs"; // karena pakai googleapis
+
 
 async function generateUniqueNomorPeserta(sheets: any, spreadsheetId: string) {
   // Ambil semua nomor peserta yang sudah ada (kolom A)

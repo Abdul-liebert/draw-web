@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSheetsClient } from "@/lib/sheets";
 
+export const runtime = "nodejs"; // karena pakai googleapis
+
+
 export async function POST(req: Request) {
   try {
     const { sheets, spreadsheetId } = await getSheetsClient();

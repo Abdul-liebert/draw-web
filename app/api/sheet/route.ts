@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSheetsClient } from "@/lib/sheets";
+export const runtime = "nodejs"; // karena pakai googleapis
+
 
 type Hadiah = {
   hadiah: string;
