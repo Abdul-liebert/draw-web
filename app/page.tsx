@@ -101,11 +101,12 @@ export default function DoorprizeDraw() {
   };
 
   const submitWinner = async () => {
-    if (!selectedWinner || !hadiahSekarang) return;
+  if (!selectedWinner || !hadiahSekarang) return;
 
+  try {
     setIsLoading(true); // ✅ mulai loading
-    // 1) Simpan ke Sheet (append winners, update hadiah, hapus peserta)
-    await fetch("/api/sheet/winner", {
+
+    const res = await fetch("/api/sheet/winner", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -115,13 +116,19 @@ export default function DoorprizeDraw() {
         nomorHadiah: hadiahSekarang.nomorHadiah,
         nomorPeserta: selectedWinner.nomorPeserta,
         alamat: selectedWinner.alamat,
-    nomorJalan: selectedWinner.nomorJalan,
-        
+        nomorJalan: selectedWinner.nomorJalan,
       }),
     });
 
-    // 2) Update state lokal agar UI langsung sinkron
-    setWinners((prev) => [
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Gagal menyimpan pemenang");
+    }
+
+    const data = await res.json();
+
+    // ✅ update winners di state parent biar tabel langsung re-render
+    setWinners((prev: any[]) => [
       ...prev,
       {
         id: nextId,
@@ -134,20 +141,17 @@ export default function DoorprizeDraw() {
       },
     ]);
 
-    setHadiahList((prev) =>
-      prev.map((h, idx) =>
-        idx === currentIndex ? { ...h, status: "sudah" } : h
-      )
-    );
-
-    setPesertaList((prev) =>
-      prev.filter((p) => p.nomorPeserta !== selectedWinner.nomorPeserta)
-    );
-
-    setNextId((prev) => prev + 1);
+    // ✅ tutup dialog kalau ada
     setDialogOpen(false);
-    setCurrentPeserta("--");
-  };
+
+    console.log("Pemenang berhasil disimpan:", data);
+  } catch (error: any) {
+    console.error("Error submitWinner:", error);
+    alert(error.message || "Terjadi kesalahan saat menyimpan pemenang");
+  } finally {
+    setIsLoading(false); // ✅ tombol submit aktif lagi
+  }
+};
 
   const nextHadiah = () => {
     if (currentIndex < hadiahList.length - 1) {
@@ -287,7 +291,7 @@ export default function DoorprizeDraw() {
                 <TableHead>Hadiah</TableHead>
                 <TableHead>No Hadiah</TableHead>
                 <TableHead>Nama</TableHead>
-                <TableHead>No Peserta</TableHead>
+                <TableHead>Alamat</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -298,7 +302,10 @@ export default function DoorprizeDraw() {
                     <TableCell>{w.hadiah}</TableCell>
                     <TableCell>{w.nomorHadiah}</TableCell>
                     <TableCell>{w.nama}</TableCell>
-                    <TableCell>{w.nomorPeserta}</TableCell>
+                    <TableCell>
+                      {" "}
+                      Jalan {w.alamat} no {w.nomorJalan}
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
