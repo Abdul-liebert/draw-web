@@ -192,7 +192,7 @@ export default function DoorprizeDraw() {
         <Badge variant="outline">
           🎉Selamat memperingati HUT RI yang ke 80
         </Badge>
-        <h2 className="text-5xl font-bold">HUT RI 80 Cluster Le Jardin BETA</h2>
+        <h2 className="text-5xl font-bold">HUT RI 80 Cluster Le Jardin</h2>
       </div>
 
       <Card className="w-full p-6 flex flex-col items-center justify-center gap-6">
